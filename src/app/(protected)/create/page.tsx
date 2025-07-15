@@ -2,8 +2,10 @@
 
 import React from 'react'
 import { useForm } from "react-hook-form"
+import { toast } from 'sonner'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
+import { api } from '~/trpc/react'
 
 
 type FormInput = {
@@ -14,11 +16,25 @@ type FormInput = {
 
 const CreatePage= () => {
     const {register,handleSubmit,reset} =useForm<FormInput>()
+    const createProject=api.project.createProject.useMutation()
 
-    function onSubmit ( data:FormInput ) {
-        window.alert(data)
+    function onSubmit(data:FormInput){
+        createProject.mutate({
+            githubUrl:data.repoUrl,
+            name:data.projectName,
+            githubToken:data.githubToken
+        } , {
+            onSuccess:() => {
+                toast.success('Project created successfully')
+                reset()
+            },
+            onError:() => {
+                toast.error('Failed to create project')
+            }
+        })
         return true
     }
+
     return (
         <div className="flex items-center gap-12 h-full justify-center">
             <img src="/github-with-circle-svgrepo-com.svg" className="h-56 w-auto"/>
