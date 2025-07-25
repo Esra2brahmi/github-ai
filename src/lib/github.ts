@@ -1,6 +1,7 @@
 import {Octokit} from "octokit"
 import { db } from "~/server/db";
-
+import axios from "axios";
+import { aiSummarizeCommit } from "./gemini";
 export const octokit = new Octokit ({
     auth : process.env.GITHUB_TOKEN
 });
@@ -8,11 +9,11 @@ export const octokit = new Octokit ({
 const githubUrl='https://github.com/Esra2brahmi/collab-sphere-ai'
 
 type Response = {
-    commitMessage : String ;
-    commitHash : String ;
-    commitAuthorName : String ;
-    commitAuthorAvatar : String ;
-    commitDate : String;
+    commitMessage : string ;
+    commitHash : string ;
+    commitAuthorName : string ;
+    commitAuthorAvatar : string ;
+    commitDate : string;
 }
 
 export const getCommitHashes = async (githubUrl: string): Promise<Response[]>=>{
@@ -39,8 +40,39 @@ export const pollCommits=async (projectId:string)=>{
     const {project,githubUrl} = await fetchProjectGithubUrl(projectId)
     const commitHashes = await getCommitHashes(githubUrl)
     const unprocessedCommits= await filterUnprocessedCommits(projectId,commitHashes)
-    console.log(unprocessedCommits)
-    return unprocessedCommits
+    const summaryResponses=await Promise.allSettled(unprocessedCommits.map(commit =>{
+        return summariseCommit(githubUrl,commit.commitHash)
+    }))
+    const summaries= summaryResponses.map((response)=>{
+        if(response.status === 'fulfilled'){
+            return response.value as string
+    }
+        return "" 
+    }) 
+    const commits= await db.commit.createMany({
+        data:summaries.map((summary,index)=>{
+            console.log(`processing commit ${index}`)
+            return {
+                projectId: projectId,
+                commitHash: unprocessedCommits[index]!.commitHash,
+                commitMessage: unprocessedCommits[index]!.commitMessage,
+                commitAuthorName: unprocessedCommits[index]!.commitAuthorName,
+                commitAuthorAvatar: unprocessedCommits[index]!.commitAuthorAvatar,
+                commitDate: unprocessedCommits[index]!.commitDate,
+                summary
+            }
+        })
+    })
+    return commits
+}
+
+async function summariseCommit(githubUrl: string,commitHash:string){
+    const {data}=await axios.get(`${githubUrl}/commit/${commitHash}.diff`, {
+        headers: {
+            Accept: 'application/vnd.github.v3.diff',
+        }
+    })
+    return await aiSummarizeCommit(data) || " "
 }
 
 async function fetchProjectGithubUrl(projectId:string){
@@ -64,4 +96,4 @@ async function filterUnprocessedCommits(projectId: string,commitHashes:Response[
     return unprocessedCommits
 }
 
-await pollCommits('cmd9zb2gt0000wkrx5pq9j586').then(console.log)
+//await pollCommits('cmd9zb2gt0000wkrx5pq9j586').then(console.log)

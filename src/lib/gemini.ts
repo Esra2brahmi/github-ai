@@ -6,7 +6,7 @@ const model = genAI.getGenerativeModel({
     model: 'gemini-1.5-flash',
 });
 
-export const summarizeCommit = async (diff: string) => {
+export const aiSummarizeCommit = async (diff: string) => {
     const prompt = `
 You are an expert programmer tasked with summarizing a git diff.
 
@@ -48,7 +48,7 @@ ${diff}
 // Example usage for testing:
 (async () => {
     console.log(
-        await summarizeCommit(`
+        await aiSummarizeCommit(`
 diff --git a/prisma/schema.prisma b/prisma/schema.prisma
 index 5f4b263..a13c41b 100644
 --- a/prisma/schema.prisma
