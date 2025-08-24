@@ -1,6 +1,5 @@
 import {Octokit} from "octokit"
 import { db } from "~/server/db";
-import axios from "axios";
 import { aiSummarizeCommit } from "./gemini";
 export const octokit = new Octokit ({
     auth : process.env.GITHUB_TOKEN
@@ -27,7 +26,8 @@ export const getCommitHashes = async (githubUrl: string): Promise<Response[]>=>{
     })
     const sortedCommits = data.sort((a:any,b:any)=> new Date(b.commit.author.date).getTime()-new Date(a.commit.author.date).getTime()) as any[]
 
-    return sortedCommits.slice(0,10).map((commit:any)=>({
+    // Process fewer commits per run to reduce LLM usage
+    return sortedCommits.slice(0,5).map((commit:any)=>({
         commitHash: commit.sha as string,
         commitMessage: commit.commit.message ?? "",
         commitAuthorName: commit.commit?.author?.name ?? "",
@@ -40,15 +40,19 @@ export const pollCommits=async (projectId:string)=>{
     const {project,githubUrl} = await fetchProjectGithubUrl(projectId)
     const commitHashes = await getCommitHashes(githubUrl)
     const unprocessedCommits= await filterUnprocessedCommits(projectId,commitHashes)
-    const summaryResponses=await Promise.allSettled(unprocessedCommits.map(commit =>{
-        return summariseCommit(githubUrl,commit.commitHash)
-    }))
-    const summaries= summaryResponses.map((response)=>{
-        if(response.status === 'fulfilled'){
-            return response.value as string
+    // Throttle: process sequentially to avoid rate-limit bursts
+    const summaries: string[] = []
+    for (const commit of unprocessedCommits) {
+        try {
+            const summary = await summariseCommit(githubUrl, commit.commitHash)
+            summaries.push(summary || "")
+        } catch (e) {
+            console.warn("summariseCommit failed for", commit.commitHash, e)
+            summaries.push("")
+        }
+        // small delay to be extra nice to the API
+        await new Promise(r => setTimeout(r, 500))
     }
-        return "" 
-    }) 
     const commits= await db.commit.createMany({
         data:summaries.map((summary,index)=>{
             console.log(`processing commit ${index}`)
@@ -67,12 +71,21 @@ export const pollCommits=async (projectId:string)=>{
 }
 
 async function summariseCommit(githubUrl: string,commitHash:string){
-    const {data}=await axios.get(`${githubUrl}/commit/${commitHash}.diff`, {
+    const [owner, repo] = githubUrl.split('/').slice(-2)
+    if(!owner || !repo){
+        throw new Error("Invalid GitHub URL")
+    }
+    const res = await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}', {
+        owner,
+        repo,
+        ref: commitHash,
         headers: {
-            Accept: 'application/vnd.github.v3.diff',
+            accept: 'application/vnd.github.v3.diff'
         }
     })
-    return await aiSummarizeCommit(data) || " "
+    // res.data is a string containing the unified diff when using the diff media type
+    const diffText = res.data as unknown as string
+    return await aiSummarizeCommit(diffText) || " "
 }
 
 async function fetchProjectGithubUrl(projectId:string){

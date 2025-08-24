@@ -9,7 +9,7 @@ generator client {
 datasource db {
     provider = "postgresql"
     url      = env("DATABASE_URL")
-    extension = [vector]
+    extensions = [vector]
 }
 
 model SourceCodeEmbedding {
@@ -33,6 +33,7 @@ model User {
     credits Int @default(150)
     userToProjects UserToProject[]
 }
+
 model Project {
     id String @id @default(cuid())
     createdAt DateTime @default(now())
@@ -41,8 +42,8 @@ model Project {
     githubUrl String?
     deletedAt DateTime? 
     userToProjects UserToProject[]
+    sourceCodeEmbeddings SourceCodeEmbedding[]
     commits Commit[]
-    
 }
 
 model UserToProject{
