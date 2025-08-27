@@ -14,7 +14,8 @@ export async function askQuestion(question:string,projectId:string){
      const stream=createStreamableValue()
 
      const queryVector=await generateEmbedding(question)
-     const vectorQuery=`[${queryVector.join('.')}]`
+     const vectorQuery = `[${queryVector.join(',')}]`
+
 
      const result = await db.$queryRaw`
      SELECT "fileName","sourceCode","summary",
