@@ -1,11 +1,11 @@
 'use client'
 import { Presentation, Upload } from 'lucide-react'
-import {CircularProgressbar,buildStyles} from 'react-circular-progressbar'
+import { CircularProgressbar } from 'react-circular-progressbar'
 import React from 'react' 
-import {useDropzone} from 'react-dropzone'
+import { useDropzone } from 'react-dropzone'
 import { Button } from '~/components/ui/button'
 import { Card } from '~/components/ui/card'
-import { uploadFile } from '~/lib/firebase'
+import { uploadFile } from '~/lib/supabase'
 
 const MeetingCard =() => {
     const [isUploading,setIsUploading]=React.useState(false)
@@ -16,13 +16,40 @@ const MeetingCard =() => {
         },
         multiple:false,
         maxSize:50_000_000,
-        onDrop: async acceptedFiles=> {
+        onDrop: async acceptedFiles => {
             setIsUploading(true)
-            console.log(acceptedFiles)
-            const file=acceptedFiles[0]
-            const downloadURL=await uploadFile(file as File,setProgress)
-            window.alert(downloadURL)
-            setIsUploading(false)
+            setProgress(0)
+            try {
+                const file = acceptedFiles[0]
+                if (!file) {
+                    throw new Error('No file selected')
+                }
+                
+                // Log file details
+                console.log('File to be uploaded:', {
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    lastModified: new Date(file.lastModified).toISOString(),
+                    isFile: file instanceof File,
+                    isBlob: file instanceof Blob
+                });
+                // Upload to 'meetings' bucket in Supabase
+                const downloadURL = await uploadFile(
+                    file,
+                    'meetings',
+                    undefined,
+                    (progress: number) => {
+                        setProgress(progress)
+                    }
+                )
+                window.alert(`File uploaded successfully: ${downloadURL}`)
+            } catch (error) {
+                console.error('Error uploading file:', error)
+                window.alert(error instanceof Error ? error.message : 'Failed to upload file. Please try again.')
+            } finally {
+                setIsUploading(false)
+            }
         }
     
     })
