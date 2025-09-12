@@ -47,14 +47,14 @@ const QAPAge=() => {
                 })}
             </div>
             {question && (
-                <SheetContent className="sm:max-w-[80vw]">
+                <SheetContent className="sm:max-w-[800px] w-full h-full max-h-screen overflow-auto right-0">
                     <SheetHeader>
                         <SheetTitle>
                             {question.question}
                         </SheetTitle>
-                        <MDEditor.Markdown source={question.answer}/>
-                        <CodeReferences filesReferences={(question.filesReferences ?? []) as any }/>
                     </SheetHeader>
+                    <MDEditor.Markdown source={question.answer}/>
+                    <CodeReferences filesReferences={(question.filesReferences ?? []) as any }/>
                 </SheetContent>
             )}
         </Sheet>
