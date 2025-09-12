@@ -46,6 +46,7 @@ model Project {
     sourceCodeEmbeddings SourceCodeEmbedding[]
     commits Commit[]
     savedQuestions Question[]
+    meetings Meeting[]
 }
 
 model UserToProject{
@@ -90,4 +91,16 @@ model Commit {
     summary String 
 
 
+}
+
+model Meeting {
+  id String @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  projectId String
+  project Project @relation(fields:[projectId], references:[id])
+
+  fileName String
+  url String
 }

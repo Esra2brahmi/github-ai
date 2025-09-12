@@ -38,6 +38,12 @@ createProject: protectedProcedure.input(
         }
     })
   }),
+  archiveProject: protectedProcedure.input(z.object({ projectId: z.string() })).mutation(async ({ ctx, input }) => {
+    return await ctx.db.project.update({
+      where: { id: input.projectId },
+      data: { deletedAt: new Date() }
+    })
+  }),
   getCommits : protectedProcedure.input(z.object({
     projectId: z.string()
   })).query(async({ctx,input})=>{
@@ -72,6 +78,28 @@ createProject: protectedProcedure.input(
         orderBy:{
             createdAt:'desc'
         }
+    })
+  }),
+
+  // Meetings
+  createMeeting: protectedProcedure.input(z.object({
+    projectId: z.string(),
+    fileName: z.string(),
+    url: z.string().url()
+  })).mutation(async ({ ctx, input }) => {
+    return await ctx.db.meeting.create({
+      data: {
+        projectId: input.projectId,
+        fileName: input.fileName,
+        url: input.url,
+      }
+    })
+  }),
+
+  getMeetings: protectedProcedure.input(z.object({ projectId: z.string() })).query(async ({ ctx, input }) => {
+    return await ctx.db.meeting.findMany({
+      where: { projectId: input.projectId },
+      orderBy: { createdAt: 'desc' }
     })
   })
 

@@ -6,10 +6,21 @@ import { useDropzone } from 'react-dropzone'
 import { Button } from '~/components/ui/button'
 import { Card } from '~/components/ui/card'
 import { uploadFile } from '~/lib/supabase'
+import useProject from '~/hooks/use-project'
+import { api } from '~/trpc/react'
 
 const MeetingCard =() => {
     const [isUploading,setIsUploading]=React.useState(false)
     const [progress,setProgress]=React.useState(0)
+    const { projectId } = useProject()
+    const utils = api.useUtils()
+    const createMeeting = api.project.createMeeting.useMutation({
+        onSuccess: async () => {
+            if (projectId) {
+                await utils.project.getMeetings.invalidate({ projectId })
+            }
+        }
+    })
     const {getRootProps,getInputProps}=useDropzone({
         accept:{
             'audio/*':['.mp3','.wav','.m4a']
@@ -23,6 +34,9 @@ const MeetingCard =() => {
                 const file = acceptedFiles[0]
                 if (!file) {
                     throw new Error('No file selected')
+                }
+                if (!projectId || !projectId.trim()){
+                    throw new Error('Please select a project from the sidebar before uploading a meeting.')
                 }
                 
                 // Log file details
@@ -43,7 +57,13 @@ const MeetingCard =() => {
                         setProgress(progress)
                     }
                 )
-                window.alert(`File uploaded successfully: ${downloadURL}`)
+                // Save meeting to DB
+                await createMeeting.mutateAsync({
+                    projectId,
+                    fileName: file.name,
+                    url: downloadURL
+                })
+                window.alert(`Meeting saved successfully.`)
             } catch (error) {
                 console.error('Error uploading file:', error)
                 window.alert(error instanceof Error ? error.message : 'Failed to upload file. Please try again.')

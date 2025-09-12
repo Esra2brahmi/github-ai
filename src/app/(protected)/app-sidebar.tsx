@@ -1,6 +1,6 @@
 'use client'
 
-import { Bot, CreditCard, LayoutDashboard, Plus, Presentation } from "lucide-react"
+import { Bot, LayoutDashboard, Plus, Presentation } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "~/components/ui/button"
@@ -23,11 +23,6 @@ const items = [
         title: "Meetings",
         url: '/meetings',
         icon: Presentation
-    },
-    {
-        title: "Billing",
-        url: '/billing',
-        icon: CreditCard
     },
 ]
 
