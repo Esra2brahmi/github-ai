@@ -6,7 +6,7 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
@@ -82,17 +82,46 @@ export const createTRPCRouter = t.router;
  */
 
 const isAuthenticated=t.middleware(async({next,ctx})=>{
-  const user= await auth()
-  if(!user){
+  const authRes = await auth()
+  if(!authRes || !authRes.userId){
     throw new TRPCError({
       code:'UNAUTHORIZED',
       message: 'You must be logged in to access this resource'
     })
   }
+  // Fetch richer user data from Clerk
+  const fullUser = await currentUser().catch(() => null)
+  // Ensure a corresponding User exists in our database to satisfy FK constraints
+  try {
+    await db.user.upsert({
+      where: { id: authRes.userId },
+      update: {
+        emailAddress: fullUser?.primaryEmailAddress?.emailAddress ?? undefined,
+        firstName: fullUser?.firstName ?? undefined,
+        lastName: fullUser?.lastName ?? undefined,
+        imageUrl: fullUser?.imageUrl ?? undefined,
+      },
+      create: {
+        id: authRes.userId,
+        emailAddress: fullUser?.primaryEmailAddress?.emailAddress ?? `${authRes.userId}@example.local`,
+        firstName: fullUser?.firstName ?? null,
+        lastName: fullUser?.lastName ?? null,
+        imageUrl: fullUser?.imageUrl ?? null,
+      },
+    })
+  } catch (e) {
+    console.error('[TRPC] Failed to upsert user', e)
+  }
   return next({
     ctx: {
       ...ctx,
-      user
+      user: {
+        userId: authRes.userId,
+        email: fullUser?.primaryEmailAddress?.emailAddress ?? undefined,
+        firstName: fullUser?.firstName ?? undefined,
+        lastName: fullUser?.lastName ?? undefined,
+        imageUrl: fullUser?.imageUrl ?? undefined,
+      }
     }
   })
 })
